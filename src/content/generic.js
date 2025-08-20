@@ -1,3 +1,6 @@
+// Prevent redeclaration if script is loaded multiple times
+if (typeof window.GenericExtractor === 'undefined') {
+
 class GenericExtractor {
   constructor() {
     this.data = {};
@@ -182,6 +185,7 @@ class GenericExtractor {
 }
 
 // Initialize extractor
+window.GenericExtractor = GenericExtractor;
 const genericExtractor = new GenericExtractor();
 
 // Listen for requests from popup
@@ -229,6 +233,10 @@ if (document.readyState === 'loading') {
   if (window.location.hostname !== 'www.linkedin.com') {
     setTimeout(() => genericExtractor.extractPageData(), 500);
   }
+}
+
+} else {
+  console.log('Generic extractor already loaded - reusing existing instance');
 }
 
 console.log('Generic content script loaded');

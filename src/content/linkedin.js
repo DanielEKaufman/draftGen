@@ -1,3 +1,6 @@
+// Prevent redeclaration if script is loaded multiple times
+if (typeof window.LinkedInExtractor === 'undefined') {
+
 class LinkedInExtractor {
   constructor() {
     this.data = {};
@@ -169,6 +172,7 @@ class LinkedInExtractor {
 }
 
 // Initialize extractor
+window.LinkedInExtractor = LinkedInExtractor;
 const linkedInExtractor = new LinkedInExtractor();
 
 // Listen for requests from popup
@@ -206,6 +210,10 @@ if (document.readyState === 'loading') {
   });
 } else {
   setTimeout(() => linkedInExtractor.extractProfileData(), 1000);
+}
+
+} else {
+  console.log('LinkedIn extractor already loaded - reusing existing instance');
 }
 
 console.log('LinkedIn content script loaded');
