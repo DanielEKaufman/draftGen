@@ -176,7 +176,8 @@ class GenericExtractor {
   // Check if this page has extractable content
   hasMeaningfulContent() {
     const content = this.extractMainContent();
-    return content && content.length > 50;
+    const title = this.extractTitle();
+    return (content && content.length > 50) || (title && title.length > 10);
   }
 }
 
@@ -185,21 +186,36 @@ const genericExtractor = new GenericExtractor();
 
 // Listen for requests from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Generic content script received message:', request);
+  
   if (request.action === 'extractGenericData') {
-    // Only respond if this isn't LinkedIn (LinkedIn script handles that)
-    if (window.location.hostname !== 'www.linkedin.com') {
-      const data = genericExtractor.getStructuredData();
-      const preview = genericExtractor.formatForDisplay();
-      
-      sendResponse({
-        success: true,
-        data: data,
-        preview: preview,
-        source: 'generic',
-        hasMeaningfulContent: genericExtractor.hasMeaningfulContent()
-      });
+    try {
+      // Only respond if this isn't LinkedIn (LinkedIn script handles that)
+      if (window.location.hostname !== 'www.linkedin.com') {
+        const data = genericExtractor.getStructuredData();
+        const preview = genericExtractor.formatForDisplay();
+        const hasMeaningful = genericExtractor.hasMeaningfulContent();
+        
+        console.log('Generic extraction results:', { data, preview, hasMeaningful });
+        
+        sendResponse({
+          success: hasMeaningful,
+          data: data,
+          preview: preview,
+          source: 'generic',
+          hasMeaningfulContent: hasMeaningful
+        });
+      } else {
+        console.log('Skipping generic extraction on LinkedIn');
+        sendResponse({ success: false, reason: 'LinkedIn page' });
+      }
+    } catch (error) {
+      console.error('Generic extraction error:', error);
+      sendResponse({ success: false, error: error.message });
     }
   }
+  
+  return true; // Keep message channel open for async response
 });
 
 // Auto-extract data when page loads (for faster popup response)

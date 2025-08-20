@@ -156,12 +156,17 @@ class PopupController {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
+      // Inject content scripts if needed
+      await this.ensureContentScriptsInjected(tab);
+      
       // Try LinkedIn first
       let response = await this.sendMessageToTab(tab.id, { action: 'extractLinkedInData' });
+      console.log('LinkedIn extraction response:', response);
       
       // If not LinkedIn or LinkedIn extraction failed, try generic
       if (!response || !response.success) {
         response = await this.sendMessageToTab(tab.id, { action: 'extractGenericData' });
+        console.log('Generic extraction response:', response);
       }
 
       if (response && response.success) {
@@ -169,12 +174,34 @@ class PopupController {
         this.displayExtractedContent(response);
         this.showMainSection();
       } else {
-        this.showError('No content could be extracted from this page. Try visiting a LinkedIn profile or a webpage with meaningful content.');
+        this.showError(`No content could be extracted from this page. URL: ${tab.url}. Try visiting a LinkedIn profile or a webpage with meaningful content.`);
       }
       
     } catch (error) {
       console.error('Error extracting content:', error);
       this.showError('Failed to extract content from this page');
+    }
+  }
+
+  async ensureContentScriptsInjected(tab) {
+    try {
+      if (tab.url.includes('linkedin.com')) {
+        // Inject LinkedIn content script
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/linkedin.js']
+        });
+      } else {
+        // Inject generic content script
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/generic.js']
+        });
+      }
+      // Wait a bit for script to initialize
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Failed to inject content scripts:', error);
     }
   }
 

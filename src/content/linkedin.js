@@ -173,17 +173,30 @@ const linkedInExtractor = new LinkedInExtractor();
 
 // Listen for requests from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('LinkedIn content script received message:', request);
+  
   if (request.action === 'extractLinkedInData') {
-    const data = linkedInExtractor.getStructuredData();
-    const preview = linkedInExtractor.formatForDisplay();
-    
-    sendResponse({
-      success: true,
-      data: data,
-      preview: preview,
-      source: 'linkedin'
-    });
+    try {
+      const data = linkedInExtractor.getStructuredData();
+      const preview = linkedInExtractor.formatForDisplay();
+      
+      console.log('LinkedIn extraction results:', { data, preview });
+      
+      const hasContent = preview && preview.length > 20;
+      
+      sendResponse({
+        success: hasContent,
+        data: data,
+        preview: preview,
+        source: 'linkedin'
+      });
+    } catch (error) {
+      console.error('LinkedIn extraction error:', error);
+      sendResponse({ success: false, error: error.message });
+    }
   }
+  
+  return true; // Keep message channel open for async response
 });
 
 // Auto-extract data when page loads (for faster popup response)
