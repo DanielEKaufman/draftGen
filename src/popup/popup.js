@@ -154,43 +154,93 @@ class PopupController {
   async extractPageContent () {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      console.log('Current tab:', tab.url)
 
-      // Wait a moment for content scripts to load if page just loaded
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Check if the page URL is supported
+      if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+        this.showError('Cannot extract content from this type of page. Try visiting a LinkedIn profile or website.')
+        return
+      }
 
-      // Try LinkedIn first
-      let response = await this.sendMessageToTab(tab.id, { action: 'extractLinkedInData' })
-      console.log('LinkedIn extraction response:', response)
+      // Wait longer for content scripts to load
+      await new Promise(resolve => setTimeout(resolve, 1500))
 
-      // If not LinkedIn or LinkedIn extraction failed, try generic
-      if (!response || !response.success) {
-        response = await this.sendMessageToTab(tab.id, { action: 'extractGenericData' })
-        console.log('Generic extraction response:', response)
+      let response = null
+      let attempts = 0
+      const maxAttempts = 3
+
+      // Retry mechanism for content script communication
+      while (!response && attempts < maxAttempts) {
+        attempts++
+        console.log(`Extraction attempt ${attempts}/${maxAttempts}`)
+
+        // Try LinkedIn first if it's a LinkedIn URL
+        if (tab.url.includes('linkedin.com')) {
+          response = await this.sendMessageToTab(tab.id, { action: 'extractLinkedInData' })
+          console.log('LinkedIn extraction response:', response)
+          
+          // If we got an error response, treat it as no response for retry logic
+          if (response && response.error && !response.success) {
+            console.log('LinkedIn extraction failed:', response.error)
+            response = null
+          }
+        }
+
+        // If not LinkedIn or LinkedIn extraction failed, try generic
+        if (!response || !response.success) {
+          const genericResponse = await this.sendMessageToTab(tab.id, { action: 'extractGenericData' })
+          console.log('Generic extraction response:', genericResponse)
+          
+          // Only use generic response if it's actually successful
+          if (genericResponse && genericResponse.success) {
+            response = genericResponse
+          } else if (genericResponse && genericResponse.error) {
+            console.log('Generic extraction failed:', genericResponse.error)
+          }
+        }
+
+        // If still no response, wait before retrying
+        if (!response && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
       }
 
       if (response && response.success) {
         this.currentData = response
         this.displayExtractedContent(response)
         this.showMainSection()
+      } else if (response && response.debug) {
+        console.log('Debug info:', response.debug)
+        this.showError(`No content could be extracted from this page.\nURL: ${tab.url}\nDebug: ${JSON.stringify(response.debug, null, 2)}\n\nTry visiting a LinkedIn profile or a webpage with meaningful content.`)
       } else {
-        this.showError(`No content could be extracted from this page. URL: ${tab.url}. Try visiting a LinkedIn profile or a webpage with meaningful content.`)
+        this.showError(`No content could be extracted from this page.\nURL: ${tab.url}\n\nPossible issues:\n• Content scripts not loaded\n• Page blocked by CORS\n• Insufficient page content\n\nTry refreshing the page and reopening the extension.`)
       }
     } catch (error) {
       console.error('Error extracting content:', error)
-      this.showError('Failed to extract content from this page')
+      this.showError(`Failed to extract content: ${error.message}`)
     }
   }
 
   sendMessageToTab (tabId, message) {
     return new Promise((resolve) => {
-      chrome.tabs.sendMessage(tabId, message, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('Tab message error:', chrome.runtime.lastError)
-          resolve(null)
-        } else {
-          resolve(response)
-        }
-      })
+      try {
+        chrome.tabs.sendMessage(tabId, message, (response) => {
+          // Check for Chrome runtime errors
+          const lastError = chrome.runtime.lastError
+          if (lastError) {
+            console.error('Chrome runtime error:', lastError.message || 'Unknown error')
+            console.log('Failed message:', message)
+            console.log('Target tab ID:', tabId)
+            resolve({ success: false, error: lastError.message || 'Communication error' })
+          } else {
+            console.log('Message sent successfully:', message.action, response)
+            resolve(response || { success: false, error: 'No response from content script' })
+          }
+        })
+      } catch (error) {
+        console.error('Exception sending message:', error)
+        resolve({ success: false, error: error.message })
+      }
     })
   }
 

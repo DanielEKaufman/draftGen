@@ -8,6 +8,8 @@ if (typeof window.LinkedInExtractor === 'undefined') {
 
     extractProfileData () {
       try {
+        console.log('Starting LinkedIn data extraction on URL:', window.location.href)
+        
         const data = {
           name: this.extractName(),
           headline: this.extractHeadline(),
@@ -22,6 +24,11 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         this.isDataReady = true
 
         console.log('LinkedIn data extracted:', data)
+        
+        // Check if we got meaningful data
+        const hasContent = data.name || data.headline || data.about || (data.experience && data.experience.length > 0)
+        console.log('Has meaningful content:', hasContent)
+        
         return data
       } catch (error) {
         console.error('Error extracting LinkedIn data:', error)
@@ -34,15 +41,30 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         'h1[data-anonymize="person-name"]',
         '.text-heading-xlarge',
         '.pv-text-details__left-panel h1',
-        'h1.break-words'
+        'h1.break-words',
+        '.pv-top-card--list h1',
+        '.text-heading-xlarge.inline.t-24.v-align-middle.break-words',
+        'main h1'
       ]
 
       for (const selector of selectors) {
         const element = document.querySelector(selector)
         if (element && element.textContent.trim()) {
+          console.log(`Found name using selector: ${selector}`, element.textContent.trim())
           return element.textContent.trim()
         }
       }
+      
+      // Fallback - try any h1 on the page that looks like a name
+      const h1Elements = document.querySelectorAll('h1')
+      for (const h1 of h1Elements) {
+        const text = h1.textContent.trim()
+        if (text && text.length > 3 && text.length < 100 && !text.toLowerCase().includes('linkedin')) {
+          console.log('Found name via h1 fallback:', text)
+          return text
+        }
+      }
+      
       return ''
     }
 
@@ -51,17 +73,36 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         '.text-body-medium.break-words',
         '.pv-text-details__left-panel .text-body-medium',
         '[data-anonymize="headline"]',
-        '.text-body-medium:not(.break-words)'
+        '.text-body-medium:not(.break-words)',
+        '.pv-top-card--list-bullet .text-body-medium',
+        'main section .text-body-medium'
       ]
 
       for (const selector of selectors) {
         const element = document.querySelector(selector)
         if (element && element.textContent.trim() &&
           !element.textContent.includes('connections') &&
-          !element.textContent.includes('followers')) {
+          !element.textContent.includes('followers') &&
+          !element.textContent.includes('mutual connections')) {
+          console.log(`Found headline using selector: ${selector}`, element.textContent.trim())
           return element.textContent.trim()
         }
       }
+      
+      // Fallback - look for text that looks like a headline near the name
+      const bodyMediumElements = document.querySelectorAll('.text-body-medium')
+      for (const element of bodyMediumElements) {
+        const text = element.textContent.trim()
+        if (text && text.length > 10 && text.length < 200 && 
+            !text.includes('connections') && 
+            !text.includes('followers') &&
+            !text.includes('mutual') &&
+            (text.includes('at') || text.includes('|') || text.includes('•'))) {
+          console.log('Found headline via fallback:', text)
+          return text
+        }
+      }
+      
       return ''
     }
 
@@ -181,22 +222,40 @@ if (typeof window.LinkedInExtractor === 'undefined') {
 
     if (request.action === 'extractLinkedInData') {
       try {
-        const data = linkedInExtractor.getStructuredData()
+        // Force fresh extraction
+        const data = linkedInExtractor.extractProfileData()
         const preview = linkedInExtractor.formatForDisplay()
 
         console.log('LinkedIn extraction results:', { data, preview })
 
-        const hasContent = preview && preview.length > 20
+        // More lenient content checking
+        const hasName = data && data.name && data.name.length > 0
+        const hasHeadline = data && data.headline && data.headline.length > 0
+        const hasAnyContent = hasName || hasHeadline || (data && data.about) || (data && data.experience && data.experience.length > 0)
+
+        console.log('Content check:', { hasName, hasHeadline, hasAnyContent, previewLength: preview ? preview.length : 0 })
 
         sendResponse({
-          success: hasContent,
-          data,
-          preview,
-          source: 'linkedin'
+          success: hasAnyContent,
+          data: data || {},
+          preview: preview || 'No content extracted',
+          source: 'linkedin',
+          debug: {
+            hasName,
+            hasHeadline,
+            url: window.location.href,
+            dataKeys: data ? Object.keys(data) : []
+          }
         })
       } catch (error) {
         console.error('LinkedIn extraction error:', error)
-        sendResponse({ success: false, error: error.message })
+        sendResponse({ 
+          success: false, 
+          error: error.message,
+          data: {},
+          preview: 'Error: ' + error.message,
+          source: 'linkedin'
+        })
       }
     }
 

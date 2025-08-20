@@ -22,6 +22,19 @@ class OptionsController {
     this.bio = document.getElementById('bio')
     this.bioCharCount = document.getElementById('bioCharCount')
 
+    // Templates
+    this.addTemplateBtn = document.getElementById('addTemplateBtn')
+    this.templatesList = document.getElementById('templatesList')
+    this.templateModal = document.getElementById('templateModal')
+    this.modalTitle = document.getElementById('modalTitle')
+    this.closeModalBtn = document.getElementById('closeModalBtn')
+    this.templateName = document.getElementById('templateName')
+    this.templateDescription = document.getElementById('templateDescription')
+    this.templateContent = document.getElementById('templateContent')
+    this.templateDefault = document.getElementById('templateDefault')
+    this.saveTemplateBtn = document.getElementById('saveTemplateBtn')
+    this.cancelTemplateBtn = document.getElementById('cancelTemplateBtn')
+
     // Preferences
     this.defaultMaxSentences = document.getElementById('defaultMaxSentences')
     this.defaultMaxParagraphs = document.getElementById('defaultMaxParagraphs')
@@ -37,6 +50,10 @@ class OptionsController {
 
     // Status
     this.statusMessage = document.getElementById('statusMessage')
+    
+    // Initialize template state
+    this.currentTemplate = null
+    this.templates = []
   }
 
   attachEventListeners () {

@@ -113,6 +113,75 @@
                 </div>
             </section>
 
+            <!-- Email Templates Section -->
+            <section class="section">
+                <h2>Email Templates</h2>
+                <div class="form-group">
+                    <div class="template-header">
+                        <label class="label">Manage your email templates:</label>
+                        <button id="addTemplateBtn" class="btn btn-secondary btn-small">
+                            <span>+ Add Template</span>
+                        </button>
+                    </div>
+                    
+                    <div id="templatesList" class="templates-list">
+                        <!-- Templates will be populated here -->
+                    </div>
+                    
+                    <!-- Template Editor Modal -->
+                    <div id="templateModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="modalTitle">Add Template</h3>
+                                <button id="closeModalBtn" class="close-btn">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="templateName" class="label required">Template Name:</label>
+                                    <input type="text" id="templateName" class="input" placeholder="e.g., Cold Outreach, Follow-up, Introduction">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="templateDescription" class="label">Description:</label>
+                                    <input type="text" id="templateDescription" class="input" placeholder="Brief description of when to use this template">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="templateContent" class="label required">Template Instructions:</label>
+                                    <textarea 
+                                        id="templateContent" 
+                                        class="textarea" 
+                                        rows="8" 
+                                        placeholder="Add specific instructions for this template style. For example:&#10;&#10;- Start with a specific observation about their recent work&#10;- Mention our mutual connection at [Company]&#10;- Reference the [specific project/post] they shared&#10;- Focus on [specific value proposition]&#10;- End with a specific ask for a 15-minute call"
+                                    ></textarea>
+                                    <div class="help-text">
+                                        These instructions will be added to the AI prompt to customize the writing style and approach
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="templateDefault">
+                                        <span class="checkmark"></span>
+                                        <div class="checkbox-content">
+                                            <strong>Set as default template</strong>
+                                            <span class="checkbox-description">This template will be selected by default in the popup</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="modal-actions">
+                                <button id="saveTemplateBtn" class="btn btn-primary">
+                                    <span class="btn-text">Save Template</span>
+                                    <div class="btn-spinner hidden"></div>
+                                </button>
+                                <button id="cancelTemplateBtn" class="btn btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Email Preferences Section -->
             <section class="section">
                 <h2>Default Email Preferences</h2>
