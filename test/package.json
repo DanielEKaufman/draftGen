@@ -1,0 +1,16 @@
+{
+  "name": "chrome-extension-tests",
+  "version": "1.0.0",
+  "description": "Automated tests for One-Click Outreach Chrome Extension",
+  "main": "puppeteer-test.js",
+  "scripts": {
+    "test": "node puppeteer-test.js",
+    "test:debug": "DEBUG=puppeteer:* node puppeteer-test.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.5.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

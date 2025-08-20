@@ -5,12 +5,14 @@
   "main": "manifest.json",
   "scripts": {
     "build": "echo 'Extension built successfully. Load the src/ directory in Chrome Developer mode.'",
-    "test": "echo 'No tests configured yet'",
+    "test": "node test/validate-extension.js",
+    "test:manual": "echo 'See test/manual-test-guide.md for manual testing instructions'",
+    "test:puppeteer": "cd test && npm install && node puppeteer-test.js",
     "lint": "eslint src/ --ext .js",
     "lint:fix": "eslint src/ --ext .js --fix",
     "format": "prettier --write 'src/**/*.{js,html,css,json}'",
     "check:format": "prettier --check 'src/**/*.{js,html,css,json}'",
-    "validate": "npm run lint && npm run check:format",
+    "validate": "npm run test && npm run lint && npm run check:format",
     "dev": "npm run build && echo 'Load the extension in Chrome at chrome://extensions/'",
     "release": "npm run validate && npm run build && echo 'Ready for release'"
   },
