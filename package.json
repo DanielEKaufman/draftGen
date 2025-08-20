@@ -56,17 +56,21 @@
     },
     "parserOptions": {
       "ecmaVersion": 2022,
-      "sourceType": "module"
+      "sourceType": "script"
     },
     "globals": {
       "chrome": "readonly",
-      "StyleRules": "readonly"
+      "StyleRules": "readonly",
+      "importScripts": "readonly"
     },
     "rules": {
       "no-console": "off",
       "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
       "prefer-const": "error",
-      "no-var": "error"
+      "no-var": "error",
+      "no-new": "off",
+      "no-cond-assign": "off",
+      "no-case-declarations": "off"
     }
   },
   "prettier": {
