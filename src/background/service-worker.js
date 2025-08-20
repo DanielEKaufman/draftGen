@@ -1,10 +1,9 @@
-// Import style rules (Chrome extensions support ES modules in service workers)
-import('../utils/rules.js').then(module => {
-  self.StyleRules = module.default || module.StyleRules;
-}).catch(() => {
-  // Fallback: Load rules synchronously if import fails
-  self.importScripts('../utils/rules.js');
-});
+// Import style rules using importScripts for Chrome extension compatibility
+try {
+  importScripts('utils/rules.js');
+} catch (error) {
+  console.error('Failed to load style rules:', error);
+}
 
 class BackgroundService {
   constructor() {
