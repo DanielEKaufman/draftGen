@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One-Click Outreach - Settings</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>One-Click Outreach Settings</h1>
+            <p class="subtitle">Configure your AI provider, personal information, and preferences</p>
+        </header>
+
+        <main class="main">
+            <!-- Status Message -->
+            <div id="statusMessage" class="status-message hidden">
+                <span class="status-text"></span>
+                <button class="status-close">&times;</button>
+            </div>
+
+            <!-- AI Provider Section -->
+            <section class="section">
+                <h2>AI Provider</h2>
+                <div class="form-group">
+                    <label for="provider" class="label">Choose your AI provider:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="provider" value="anthropic" checked>
+                            <span class="radio-custom"></span>
+                            <div class="radio-content">
+                                <strong>Anthropic Claude</strong>
+                                <span class="radio-description">Recommended for better style adherence and quality</span>
+                            </div>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="provider" value="openai">
+                            <span class="radio-custom"></span>
+                            <div class="radio-content">
+                                <strong>OpenAI GPT</strong>
+                                <span class="radio-description">Good alternative with strong performance</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="apiKey" class="label required">API Key:</label>
+                    <div class="input-group">
+                        <input 
+                            type="password" 
+                            id="apiKey" 
+                            class="input" 
+                            placeholder="Enter your API key..."
+                            autocomplete="new-password"
+                        >
+                        <button type="button" id="toggleApiKey" class="toggle-btn" title="Show/Hide API Key">
+                            👁️
+                        </button>
+                    </div>
+                    <div class="help-text">
+                        <div id="anthropicHelp" class="api-help">
+                            Get your Claude API key from <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>
+                        </div>
+                        <div id="openaiHelp" class="api-help hidden">
+                            Get your OpenAI API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button id="testApiBtn" class="btn btn-secondary">
+                        <span class="btn-text">Test API Connection</span>
+                        <div class="btn-spinner hidden"></div>
+                    </button>
+                    <div id="apiTestResult" class="test-result hidden"></div>
+                </div>
+            </section>
+
+            <!-- Personal Information Section -->
+            <section class="section">
+                <h2>Personal Information</h2>
+                
+                <div class="form-group">
+                    <label for="calendarLink" class="label">Calendar Link (Optional):</label>
+                    <input 
+                        type="url" 
+                        id="calendarLink" 
+                        class="input" 
+                        placeholder="https://cal.com/yourname or https://calendly.com/yourname"
+                    >
+                    <div class="help-text">
+                        This link will be automatically included in your emails when the option is enabled
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bio" class="label">One-line Bio (Optional):</label>
+                    <input 
+                        type="text" 
+                        id="bio" 
+                        class="input" 
+                        placeholder="e.g., I build AI tools for real estate development"
+                        maxlength="150"
+                    >
+                    <div class="char-counter">
+                        <span id="bioCharCount">0</span>/150 characters
+                    </div>
+                    <div class="help-text">
+                        A brief description of what you do, automatically appended to emails when enabled
+                    </div>
+                </div>
+            </section>
+
+            <!-- Email Preferences Section -->
+            <section class="section">
+                <h2>Default Email Preferences</h2>
+                
+                <div class="preferences-grid">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="defaultMaxSentences" checked>
+                        <span class="checkmark"></span>
+                        <div class="checkbox-content">
+                            <strong>Enforce 6 sentence maximum</strong>
+                            <span class="checkbox-description">Ensures emails stay concise and readable</span>
+                        </div>
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="defaultMaxParagraphs" checked>
+                        <span class="checkmark"></span>
+                        <div class="checkbox-content">
+                            <strong>Limit to 1-2 paragraphs</strong>
+                            <span class="checkbox-description">Maintains professional formatting</span>
+                        </div>
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="defaultNoEmDashes" checked>
+                        <span class="checkmark"></span>
+                        <div class="checkbox-content">
+                            <strong>Replace em dashes with periods/commas</strong>
+                            <span class="checkbox-description">Improves compatibility across email clients</span>
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Advanced Settings Section -->
+            <section class="section">
+                <h2>Advanced Settings</h2>
+                
+                <div class="form-group">
+                    <label for="model" class="label">Model (Optional):</label>
+                    <select id="model" class="select">
+                        <option value="">Default (Recommended)</option>
+                        <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                        <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                    </select>
+                    <div class="help-text">
+                        Leave as default unless you have specific model requirements
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="debugMode">
+                        <span class="checkmark"></span>
+                        <div class="checkbox-content">
+                            <strong>Enable debug logging</strong>
+                            <span class="checkbox-description">Helps troubleshoot issues (check browser console)</span>
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Action Buttons -->
+            <div class="actions">
+                <button id="saveBtn" class="btn btn-primary">
+                    <span class="btn-text">Save Settings</span>
+                    <div class="btn-spinner hidden"></div>
+                </button>
+                <button id="resetBtn" class="btn btn-secondary">Reset to Defaults</button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-links">
+                <a href="https://github.com/your-repo/one-click-outreach" target="_blank">GitHub</a>
+                <a href="https://github.com/your-repo/one-click-outreach/issues" target="_blank">Report Issue</a>
+                <span class="version">v1.0.0</span>
+            </div>
+            <div class="footer-text">
+                <small>Your API keys are stored locally and never shared with third parties</small>
+            </div>
+        </footer>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

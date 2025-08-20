@@ -1,0 +1,94 @@
+{
+  "name": "one-click-outreach",
+  "version": "1.0.0",
+  "description": "Chrome extension for generating personalized outreach emails from LinkedIn profiles and webpages using AI",
+  "main": "manifest.json",
+  "scripts": {
+    "build": "echo 'Extension built successfully. Load the src/ directory in Chrome Developer mode.'",
+    "test": "echo 'No tests configured yet'",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix",
+    "format": "prettier --write 'src/**/*.{js,html,css,json}'",
+    "check:format": "prettier --check 'src/**/*.{js,html,css,json}'",
+    "validate": "npm run lint && npm run check:format",
+    "dev": "npm run build && echo 'Load the extension in Chrome at chrome://extensions/'",
+    "release": "npm run validate && npm run build && echo 'Ready for release'"
+  },
+  "keywords": [
+    "chrome-extension",
+    "linkedin",
+    "outreach",
+    "ai",
+    "email",
+    "claude",
+    "gpt",
+    "anthropic",
+    "openai"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/one-click-outreach.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/one-click-outreach/issues"
+  },
+  "homepage": "https://github.com/yourusername/one-click-outreach#readme",
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "prettier": "^3.2.5"
+  },
+  "eslintConfig": {
+    "extends": [
+      "standard"
+    ],
+    "env": {
+      "browser": true,
+      "es2022": true,
+      "webextensions": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 2022,
+      "sourceType": "module"
+    },
+    "globals": {
+      "chrome": "readonly",
+      "StyleRules": "readonly"
+    },
+    "rules": {
+      "no-console": "off",
+      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "prefer-const": "error",
+      "no-var": "error"
+    }
+  },
+  "prettier": {
+    "semi": false,
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "none",
+    "printWidth": 100,
+    "bracketSpacing": true,
+    "arrowParens": "avoid"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": [
+    "last 2 Chrome versions"
+  ],
+  "manifest": {
+    "version": "3",
+    "permissions": [
+      "activeTab",
+      "storage",
+      "scripting"
+    ]
+  }
+}
