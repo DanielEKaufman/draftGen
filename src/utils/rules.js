@@ -161,3 +161,8 @@ class StyleRules {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = StyleRules
 }
+
+// For use in Chrome extension service workers
+if (typeof self !== 'undefined') {
+  self.StyleRules = StyleRules
+}

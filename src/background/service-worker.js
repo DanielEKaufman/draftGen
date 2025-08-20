@@ -1,8 +1,119 @@
-// Import style rules using importScripts for Chrome extension compatibility
-try {
-  importScripts('utils/rules.js')
-} catch (error) {
-  console.error('Failed to load style rules:', error)
+// Inline StyleRules class to avoid import issues
+class StyleRules {
+  static enforce (emailContent, rules = {}) {
+    if (!emailContent || typeof emailContent !== 'string') {
+      return emailContent
+    }
+
+    let processed = emailContent
+
+    if (rules.maxSentences) {
+      processed = this.enforceSentenceLimit(processed, 6)
+    }
+
+    if (rules.maxParagraphs) {
+      processed = this.enforceParagraphLimit(processed, 2)
+    }
+
+    if (rules.noEmDashes) {
+      processed = this.replaceEmDashes(processed)
+    }
+
+    return processed
+  }
+
+  static enforceSentenceLimit (text, maxSentences = 6) {
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0)
+    
+    if (sentences.length <= maxSentences) {
+      return text
+    }
+
+    const limitedSentences = sentences.slice(0, maxSentences)
+    let result = ''
+    const originalPunctuation = text.match(/[.!?]+/g) || []
+
+    for (let i = 0; i < limitedSentences.length; i++) {
+      result += limitedSentences[i].trim()
+      
+      if (i < originalPunctuation.length) {
+        const punct = originalPunctuation[i] || '.'
+        result += punct.charAt(0)
+      } else {
+        result += '.'
+      }
+      
+      if (i < limitedSentences.length - 1) {
+        result += ' '
+      }
+    }
+
+    return result
+  }
+
+  static enforceParagraphLimit (text, maxParagraphs = 2) {
+    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0)
+    
+    if (paragraphs.length <= maxParagraphs) {
+      return text
+    }
+
+    const limitedParagraphs = paragraphs.slice(0, maxParagraphs)
+    return limitedParagraphs.map(p => p.trim()).join('\n\n')
+  }
+
+  static replaceEmDashes (text) {
+    return text
+      .replace(/\s*—\s*/g, ', ')
+      .replace(/\s*--\s*/g, ', ')
+      .replace(/,,+/g, ',')
+      .replace(/\s*,\s*([.!?])/g, '$1')
+      .replace(/,\s*,/g, ',')
+  }
+
+  static appendPlaceholders (text, placeholders = {}) {
+    if (!text) return text
+
+    let result = text.trim()
+    
+    if (!result.match(/[.!?]$/)) {
+      result += '.'
+    }
+
+    if (placeholders.calendarLink) {
+      result += `\n\nCalendar: ${placeholders.calendarLink}`
+    }
+
+    if (placeholders.bio) {
+      result += `\n\n${placeholders.bio}`
+    }
+
+    return result
+  }
+
+  static generateStats (text) {
+    return {
+      sentences: this.countSentences(text),
+      paragraphs: this.countParagraphs(text),
+      words: this.countWords(text),
+      characters: text ? text.length : 0
+    }
+  }
+
+  static countSentences (text) {
+    if (!text) return 0
+    return text.split(/[.!?]+/).filter(s => s.trim().length > 0).length
+  }
+
+  static countParagraphs (text) {
+    if (!text) return 0
+    return text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length
+  }
+
+  static countWords (text) {
+    if (!text) return 0
+    return text.split(/\s+/).filter(w => w.length > 0).length
+  }
 }
 
 class BackgroundService {
@@ -69,20 +180,16 @@ class BackgroundService {
       const parsed = this.parseAIResponse(aiResponse.content)
 
       // Apply style rules enforcement
-      const enforcedBody = this.StyleRules
-        ? this.StyleRules.enforce(parsed.body, rules)
-        : parsed.body
+      const enforcedBody = StyleRules.enforce(parsed.body, rules)
 
-      // Add placeholders
-      const finalBody = this.StyleRules
-        ? this.StyleRules.appendPlaceholders(enforcedBody, placeholders)
-        : this.appendPlaceholdersSimple(enforcedBody, placeholders)
+      // Add placeholders  
+      const finalBody = StyleRules.appendPlaceholders(enforcedBody, placeholders)
 
       return {
         success: true,
         subject: parsed.subject,
         body: finalBody,
-        stats: this.StyleRules ? this.StyleRules.generateStats(finalBody) : null
+        stats: StyleRules.generateStats(finalBody)
       }
     } catch (error) {
       console.error('Email generation error:', error)
