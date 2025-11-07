@@ -159,11 +159,36 @@ body {
   position: relative;
 }
 
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .content-preview h3 {
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin: 0;
   color: #333;
+}
+
+.refresh-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.refresh-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.refresh-btn:active {
+  transform: scale(0.95);
 }
 
 .preview-text {

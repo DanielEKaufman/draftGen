@@ -33,6 +33,7 @@ class PopupController {
     // Buttons
     this.generateBtn = document.getElementById('generateBtn')
     this.retryBtn = document.getElementById('retryBtn')
+    this.refreshBtn = document.getElementById('refreshBtn')
     this.optionsBtn = document.getElementById('optionsBtn')
     this.openOptionsBtn = document.getElementById('openOptionsBtn')
     this.backBtn = document.getElementById('backBtn')
@@ -99,6 +100,7 @@ class PopupController {
 
     // Navigation buttons
     this.retryBtn.addEventListener('click', () => this.loadState())
+    this.refreshBtn.addEventListener('click', () => this.refreshContent())
     this.backBtn.addEventListener('click', () => this.showMainSection())
     this.regenerateBtn.addEventListener('click', () => this.showMainSection())
 
@@ -151,8 +153,43 @@ class PopupController {
       // Load templates
       await this.loadTemplates()
 
-      // Extract content from current page
-      await this.extractPageContent()
+      // Get current tab URL for caching
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      this.currentTabUrl = tab.url
+
+      // Check for cached data first
+      const cachedState = await this.getCachedState(tab.url)
+
+      if (cachedState) {
+        console.log('Using cached state for:', tab.url)
+
+        // Restore extracted data
+        if (cachedState.extractedData) {
+          this.currentData = cachedState.extractedData
+          this.displayExtractedContent(cachedState.extractedData)
+          this.populateIdentityFields()
+
+          // Restore CRM data if available
+          if (cachedState.crmData) {
+            this.crmData = cachedState.crmData
+            if (cachedState.crmData.contacts && cachedState.crmData.contacts.length > 0) {
+              this.updateCRMStatus('found', cachedState.crmData.contacts.length)
+            }
+          }
+        }
+
+        // Restore generated email if available
+        if (cachedState.generatedEmail) {
+          this.displayResults(cachedState.generatedEmail)
+          this.showResultsSection()
+          return
+        }
+
+        this.showMainSection()
+      } else {
+        // No cached data, extract content from page
+        await this.extractPageContent()
+      }
     } catch (error) {
       console.error('Error loading state:', error)
       this.showError('Failed to initialize extension')
@@ -165,6 +202,52 @@ class PopupController {
         resolve(result)
       })
     })
+  }
+
+  async getCachedState (url) {
+    return new Promise((resolve) => {
+      const cacheKey = `pageCache_${url}`
+      chrome.storage.local.get([cacheKey], (result) => {
+        resolve(result[cacheKey] || null)
+      })
+    })
+  }
+
+  async saveCachedState (url, state) {
+    return new Promise((resolve) => {
+      const cacheKey = `pageCache_${url}`
+      const cacheData = {
+        ...state,
+        timestamp: Date.now()
+      }
+      chrome.storage.local.set({ [cacheKey]: cacheData }, () => {
+        console.log('Saved cached state for:', url)
+        resolve()
+      })
+    })
+  }
+
+  async clearCachedState (url) {
+    return new Promise((resolve) => {
+      const cacheKey = `pageCache_${url}`
+      chrome.storage.local.remove([cacheKey], () => {
+        console.log('Cleared cached state for:', url)
+        resolve()
+      })
+    })
+  }
+
+  async refreshContent () {
+    console.log('Refreshing content...')
+
+    // Clear cached state for current URL
+    if (this.currentTabUrl) {
+      await this.clearCachedState(this.currentTabUrl)
+    }
+
+    // Show loading and re-extract
+    this.showLoadingSection()
+    await this.extractPageContent()
   }
 
   loadCheckboxStates () {
@@ -260,13 +343,18 @@ class PopupController {
       if (response && response.success) {
         this.currentData = response
         this.displayExtractedContent(response)
-        
+
         // Populate identity fields from extracted data
         this.populateIdentityFields()
-        
+
+        // Save extracted data to cache
+        await this.saveCachedState(tab.url, {
+          extractedData: response
+        })
+
         // Automatically search for contacts in CRM if configured
         if (this.currentConfig.notionCrm && this.currentConfig.notionCrm.apiKey) {
-          this.performCRMLookup()
+          await this.performCRMLookup()
         }
         this.showMainSection()
       } else if (response && response.debug) {
@@ -364,6 +452,14 @@ class PopupController {
 
       if (result.success) {
         this.displayResults(result)
+
+        // Save generated email to cache
+        const cachedState = await this.getCachedState(this.currentTabUrl)
+        await this.saveCachedState(this.currentTabUrl, {
+          ...cachedState,
+          generatedEmail: result
+        })
+
         this.showResultsSection()
       } else {
         this.showError(result.error || 'Failed to generate email')
@@ -848,7 +944,14 @@ class PopupController {
         } else {
           this.updateCRMStatus('not_found', 0)
         }
-        
+
+        // Save CRM data to cache
+        const cachedState = await this.getCachedState(this.currentTabUrl)
+        await this.saveCachedState(this.currentTabUrl, {
+          ...cachedState,
+          crmData: this.crmData
+        })
+
       } else {
         console.log('CRM lookup failed:', searchResult.error)
         this.crmData = {
