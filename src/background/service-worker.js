@@ -716,7 +716,7 @@ Template structure: ${template.body}
 
 CRITICAL INSTRUCTIONS:
 - ONLY write the content that goes in the {custom_content} section
-- Do NOT write greetings like "Hi [name]" or "Dear [name]" 
+- Do NOT write greetings like "Hi [name]" or "Dear [name]"
 - Do NOT write closings like "Best regards" or "Sincerely"
 - Do NOT include your name or signature
 - Do NOT write a complete email
@@ -938,24 +938,28 @@ SIGNATURE ELEMENTS:`
 
   async callClaude (prompt, apiKey, model = 'claude-sonnet-4-20250514') {
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      }
+
+      const body = {
+        model: model,
+        max_tokens: 1000,
+        messages: [
+          {
+            role: 'user',
+            content: prompt.system + '\n\n' + prompt.user
+          }
+        ]
+      }
+
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 1000,
-          messages: [
-            {
-              role: 'user',
-              content: `${prompt.system}\n\n${prompt.user}`
-            }
-          ]
-        })
+        headers: headers,
+        body: JSON.stringify(body)
       })
 
       if (!response.ok) {
