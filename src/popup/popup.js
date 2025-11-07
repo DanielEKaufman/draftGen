@@ -34,6 +34,7 @@ class PopupController {
     this.generateBtn = document.getElementById('generateBtn')
     this.retryBtn = document.getElementById('retryBtn')
     this.refreshBtn = document.getElementById('refreshBtn')
+    this.pullPdfBtn = document.getElementById('pullPdfBtn')
     this.optionsBtn = document.getElementById('optionsBtn')
     this.openOptionsBtn = document.getElementById('openOptionsBtn')
     this.backBtn = document.getElementById('backBtn')
@@ -101,6 +102,7 @@ class PopupController {
     // Navigation buttons
     this.retryBtn.addEventListener('click', () => this.loadState())
     this.refreshBtn.addEventListener('click', () => this.refreshContent())
+    this.pullPdfBtn.addEventListener('click', () => this.triggerLinkedInPDF())
     this.backBtn.addEventListener('click', () => this.showMainSection())
     this.regenerateBtn.addEventListener('click', () => this.showMainSection())
 
@@ -248,6 +250,50 @@ class PopupController {
     // Show loading and re-extract
     this.showLoadingSection()
     await this.extractPageContent()
+  }
+
+  async triggerLinkedInPDF () {
+    console.log('Triggering LinkedIn PDF download...')
+
+    try {
+      // Disable button during operation
+      this.pullPdfBtn.disabled = true
+      this.pullPdfBtn.textContent = '⏳ Downloading PDF...'
+
+      // Get current tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+
+      // Send message to content script to click More → Save to PDF
+      const response = await this.sendMessageToTab(tab.id, {
+        action: 'triggerPdfDownload'
+      }, 10000)
+
+      if (response && response.success) {
+        console.log('PDF download triggered successfully')
+        this.pullPdfBtn.textContent = '✓ PDF Downloading...'
+
+        // Listen for the download to complete
+        this.setupPDFDownloadListener()
+      } else {
+        console.error('Failed to trigger PDF download:', response?.error)
+        this.pullPdfBtn.disabled = false
+        this.pullPdfBtn.textContent = '📄 Pull in Full PDF'
+        alert('Could not trigger PDF download. Please try clicking "More" → "Save to PDF" manually.')
+      }
+    } catch (error) {
+      console.error('Error triggering PDF:', error)
+      this.pullPdfBtn.disabled = false
+      this.pullPdfBtn.textContent = '📄 Pull in Full PDF'
+      alert(`Error: ${error.message}`)
+    }
+  }
+
+  setupPDFDownloadListener () {
+    // This will be implemented to listen for PDF download completion
+    console.log('Setting up PDF download listener...')
+    // TODO: Listen for chrome.downloads.onChanged
+    // TODO: Parse PDF when download completes
+    // TODO: Extract contact data from PDF
   }
 
   loadCheckboxStates () {
@@ -431,6 +477,13 @@ class PopupController {
     this.contentPreview.textContent = response.preview || 'Content extracted successfully'
     this.sourceType.textContent = response.source === 'linkedin' ? 'LinkedIn' : 'Webpage'
     this.sourceType.className = `source-badge source-${response.source}`
+
+    // Show PDF button only on LinkedIn pages
+    if (response.source === 'linkedin') {
+      this.pullPdfBtn.classList.remove('hidden')
+    } else {
+      this.pullPdfBtn.classList.add('hidden')
+    }
   }
 
   async generateEmail () {

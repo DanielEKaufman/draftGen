@@ -885,6 +885,12 @@ if (typeof window.LinkedInExtractor === 'undefined') {
       return true // Keep message channel open for async response
     }
 
+    if (request.action === 'triggerPdfDownload') {
+      // Handle PDF download trigger
+      handlePdfDownloadTrigger(sendResponse)
+      return true // Keep message channel open for async response
+    }
+
     return false // Don't keep channel open for other messages
   })
 
@@ -936,6 +942,92 @@ if (typeof window.LinkedInExtractor === 'undefined') {
       
       console.log('❌ Sending error response:', errorResponse)
       sendResponse(errorResponse)
+    }
+  }
+
+  async function handlePdfDownloadTrigger(sendResponse) {
+    try {
+      console.log('📄 Attempting to trigger LinkedIn PDF download...')
+
+      // Find the "More" button (looks for common selectors)
+      const moreButtonSelectors = [
+        'button[aria-label*="More actions"]',
+        'button[aria-label*="More"]',
+        'button.artdeco-dropdown__trigger--placement-bottom',
+        '[data-control-name="more_actions"]',
+        'button:has-text("More")'
+      ]
+
+      let moreButton = null
+      for (const selector of moreButtonSelectors) {
+        moreButton = document.querySelector(selector)
+        if (moreButton) {
+          console.log('✓ Found More button using selector:', selector)
+          break
+        }
+      }
+
+      if (!moreButton) {
+        throw new Error('Could not find "More" button on profile page')
+      }
+
+      // Click the More button
+      console.log('Clicking More button...')
+      moreButton.click()
+
+      // Wait for dropdown to appear
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Find the "Save to PDF" option in the dropdown
+      const pdfButtonSelectors = [
+        'a[href*="save-to-pdf"]',
+        'a:has-text("Save to PDF")',
+        '[data-control-name="save_to_pdf"]',
+        'div.artdeco-dropdown__item:has-text("Save to PDF")',
+        'a[data-control-name="save_to_pdf"]'
+      ]
+
+      let pdfButton = null
+      for (const selector of pdfButtonSelectors) {
+        // Try to find by text content
+        const elements = document.querySelectorAll('a, button, div')
+        for (const elem of elements) {
+          if (elem.textContent.includes('Save to PDF')) {
+            pdfButton = elem
+            console.log('✓ Found PDF button by text content')
+            break
+          }
+        }
+        if (pdfButton) break
+
+        // Try selector
+        pdfButton = document.querySelector(selector)
+        if (pdfButton) {
+          console.log('✓ Found PDF button using selector:', selector)
+          break
+        }
+      }
+
+      if (!pdfButton) {
+        throw new Error('Could not find "Save to PDF" option in dropdown')
+      }
+
+      // Click the PDF button
+      console.log('Clicking Save to PDF button...')
+      pdfButton.click()
+
+      console.log('✓ PDF download triggered successfully')
+      sendResponse({
+        success: true,
+        message: 'PDF download triggered'
+      })
+
+    } catch (error) {
+      console.error('❌ PDF download trigger error:', error)
+      sendResponse({
+        success: false,
+        error: error.message
+      })
     }
   }
 

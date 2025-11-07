@@ -207,7 +207,9 @@ body {
 
 .source-info {
   margin-top: 8px;
-  text-align: right;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .source-badge {
@@ -228,6 +230,34 @@ body {
 
 .source-badge.source-generic {
   background: #6c757d;
+}
+
+.pdf-btn {
+  background: #0077b5;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pdf-btn:hover {
+  background: #005885;
+}
+
+.pdf-btn:active {
+  transform: scale(0.98);
+}
+
+.pdf-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 /* Template Section */
