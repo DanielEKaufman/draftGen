@@ -160,8 +160,12 @@ class OptionsController {
     // Add provider-specific options
     if (selectedProvider === 'anthropic') {
       const options = [
-        { value: 'claude-3-sonnet-20240229', text: 'Claude 3 Sonnet' },
-        { value: 'claude-3-haiku-20240307', text: 'Claude 3 Haiku' }
+        { value: 'claude-sonnet-4-5-20250929', text: 'Claude Sonnet 4.5 (Best for coding)' },
+        { value: 'claude-sonnet-4-20250522', text: 'Claude Sonnet 4 (Balanced)' },
+        { value: 'claude-haiku-4-5-20251015', text: 'Claude Haiku 4.5 (Fast & cheap)' },
+        { value: 'claude-opus-4-20250805', text: 'Claude Opus 4 (Most capable)' },
+        { value: 'claude-3-sonnet-20240229', text: 'Claude 3 Sonnet (Legacy)' },
+        { value: 'claude-3-haiku-20240307', text: 'Claude 3 Haiku (Legacy)' }
       ]
       options.forEach(opt => {
         const option = document.createElement('option')

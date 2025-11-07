@@ -659,7 +659,7 @@ class BackgroundService {
       const result = await this.callAIProvider(testPrompt, {
         provider,
         apiKey,
-        model: provider === 'anthropic' ? 'claude-3-haiku-20240307' : 'gpt-4o-mini'
+        model: provider === 'anthropic' ? 'claude-haiku-4-5-20251015' : 'gpt-4o-mini'
       })
 
       if (result.success && result.content.toLowerCase().includes('api connection successful')) {
@@ -936,7 +936,7 @@ SIGNATURE ELEMENTS:`
     }
   }
 
-  async callClaude (prompt, apiKey, model = 'claude-3-sonnet-20240229') {
+  async callClaude (prompt, apiKey, model = 'claude-sonnet-4-20250522') {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -1093,7 +1093,7 @@ SIGNATURE ELEMENTS:`
       const result = await this.callAIProvider(testPrompt, {
         provider,
         apiKey,
-        model: provider === 'anthropic' ? 'claude-3-haiku-20240307' : 'gpt-4o-mini'
+        model: provider === 'anthropic' ? 'claude-haiku-4-5-20251015' : 'gpt-4o-mini'
       })
 
       if (result.success && result.content.toLowerCase().includes('api connection successful')) {
