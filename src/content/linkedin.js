@@ -135,60 +135,123 @@ if (typeof window.LinkedInExtractor === 'undefined') {
 
     findProfileName() {
       console.log('🔍 Looking for profile name with targeted approach...')
-      
-      // Look for the main profile name which should be the largest text in the profile area
-      const largeTexts = []
-      const allElements = document.querySelectorAll('*')
-      
-      for (const element of allElements) {
-        const text = element.textContent?.trim()
-        if (!text || element.children.length > 1) continue
-        
-        const rect = element.getBoundingClientRect()
-        const fontSize = parseFloat(window.getComputedStyle(element).fontSize)
-        
-        // Look for large text in the main profile area that looks like a name
-        if (fontSize > 20 && rect.top > 100 && rect.top < 600 && rect.left > 50 && rect.left < 800) {
-          if (text.match(/^[A-Z][a-z]+ [A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
-            largeTexts.push({ text, fontSize, element })
+
+      // PRIORITY 1: Try known LinkedIn profile name selectors
+      const knownSelectors = [
+        'h1.text-heading-xlarge', // Main profile name heading
+        'h1[data-anonymize="person-name"]', // LinkedIn's anonymized data attribute
+        'main section:first-of-type h1', // First h1 in main section
+        '.pv-top-card h1', // Profile view top card
+        '.ph5.pb5 h1' // Profile header area
+      ]
+
+      for (const selector of knownSelectors) {
+        const element = document.querySelector(selector)
+        if (element) {
+          const text = element.textContent?.trim()
+          if (text && text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
+            console.log('✅ Found name via known selector:', selector, '→', text)
+            return text
           }
         }
       }
-      
-      // Sort by font size (largest first)
-      largeTexts.sort((a, b) => b.fontSize - a.fontSize)
-      
-      console.log('Found large name candidates:', largeTexts.slice(0, 3).map(t => ({ text: t.text, fontSize: t.fontSize })))
-      
+
+      // PRIORITY 2: Look for the main profile name (must be in TOP profile header area)
+      const largeTexts = []
+      const allElements = document.querySelectorAll('*')
+
+      for (const element of allElements) {
+        const text = element.textContent?.trim()
+        if (!text || element.children.length > 1) continue
+
+        const rect = element.getBoundingClientRect()
+        const fontSize = parseFloat(window.getComputedStyle(element).fontSize)
+        const tagName = element.tagName.toLowerCase()
+
+        // STRICT CRITERIA: Must be in the profile header area (top 350px, left side)
+        // This excludes content from posts, activity feed, and recommendations
+        const isInProfileHeader = rect.top > 80 && rect.top < 350 && rect.left > 0 && rect.left < 700
+        const isLargeText = fontSize > 24
+        const isHeading = tagName === 'h1'
+
+        if (isInProfileHeader && (isLargeText || isHeading)) {
+          // Check if it looks like a name (handles "First Last" or "First L.")
+          if (text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
+            largeTexts.push({ text, fontSize, element, rect, tagName })
+          }
+        }
+      }
+
+      // Sort by: 1) h1 tags first, 2) higher position (smaller top), 3) font size
+      largeTexts.sort((a, b) => {
+        if (a.tagName === 'h1' && b.tagName !== 'h1') return -1
+        if (a.tagName !== 'h1' && b.tagName === 'h1') return 1
+        if (Math.abs(a.rect.top - b.rect.top) > 50) return a.rect.top - b.rect.top
+        return b.fontSize - a.fontSize
+      })
+
+      console.log('Found large name candidates:', largeTexts.slice(0, 3).map(t => ({
+        text: t.text,
+        fontSize: t.fontSize,
+        top: Math.round(t.rect.top),
+        tag: t.tagName
+      })))
+
       return largeTexts.length > 0 ? largeTexts[0].text : null
     }
 
     findJobInformation() {
       console.log('🔍 Looking for job information...')
-      
+
       const result = { headline: null, company: null, title: null }
-      
-      // Look for text that contains "at" which often indicates "Title at Company"
+
+      // PRIORITY 1: Try known headline selectors
+      const headlineSelectors = [
+        '.text-body-medium.break-words', // Current headline format
+        'div.text-body-medium:not([class*="mt"])', // Headline without top margin
+        'main section:first-of-type .text-body-medium', // First section headline
+        '.pv-top-card-profile-picture + div .text-body-medium' // Next to profile picture
+      ]
+
+      for (const selector of headlineSelectors) {
+        const element = document.querySelector(selector)
+        if (element) {
+          const text = element.textContent?.trim()
+          // Verify it's not the name itself
+          if (text && text.length > 10 && text.length < 200 && !text.match(/^[A-Z][a-z]+ [A-Z][a-z]+$/)) {
+            console.log('✅ Found headline via known selector:', selector, '→', text)
+            result.headline = text
+            const exp = this.parseHeadlineForExperience(text)
+            if (exp) {
+              result.company = exp.company
+              result.title = exp.title
+            }
+            return result
+          }
+        }
+      }
+
+      // PRIORITY 2: Look for text that contains "at" which often indicates "Title at Company"
       const jobElements = []
       const allElements = document.querySelectorAll('*')
-      
+
       for (const element of allElements) {
         const text = element.textContent?.trim()
         if (!text || element.children.length > 1) continue
-        
+
         const rect = element.getBoundingClientRect()
         const fontSize = parseFloat(window.getComputedStyle(element).fontSize)
-        
-        // Look for medium-sized text in profile area that looks like job info
-        if (fontSize >= 14 && fontSize <= 20 && rect.top > 150 && rect.top < 500 && rect.left > 50 && rect.left < 800) {
+
+        // STRICT: Only look in the profile header area (not in posts/activity)
+        if (fontSize >= 14 && fontSize <= 20 && rect.top > 200 && rect.top < 400 && rect.left > 0 && rect.left < 700) {
           // Check if it looks like a job title
-          if (text.includes(' at ') || text.includes(' & ') || 
+          if (text.includes(' at ') || text.includes(' & ') ||
               text.match(/^(Co-)?Founder/i) || text.match(/^(Chief|Senior|Lead|Principal|Director|Manager)/i)) {
             jobElements.push({ text, fontSize, element, rect })
           }
         }
       }
-      
+
       // Sort by position (higher up first, then by font size)
       jobElements.sort((a, b) => a.rect.top - b.rect.top || b.fontSize - a.fontSize)
       
@@ -375,9 +438,14 @@ if (typeof window.LinkedInExtractor === 'undefined') {
       if (tagName === 'h3') score += 15
       
       // Position-based scoring (profile names are usually in specific areas)
+      // STRICT: Only the top profile header area, NOT the activity feed or posts
       const rect = element.getBoundingClientRect()
-      if (rect.top > 50 && rect.top < 400 && rect.left < 600) score += 25 // Profile area
-      if (rect.top < 300) score += 15 // Upper portion
+      if (rect.top > 80 && rect.top < 350 && rect.left > 0 && rect.left < 700) {
+        score += 40 // Main profile header area
+      } else if (rect.top > 350) {
+        score -= 30 // Penalize content below profile header (posts, activity, etc.)
+      }
+      if (rect.top < 250) score += 20 // Very top portion (where main profile is)
       
       // Font size (larger text more likely to be names)
       const fontSize = parseFloat(window.getComputedStyle(element).fontSize)
