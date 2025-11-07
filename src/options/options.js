@@ -161,9 +161,9 @@ class OptionsController {
     if (selectedProvider === 'anthropic') {
       const options = [
         { value: 'claude-sonnet-4-5-20250929', text: 'Claude Sonnet 4.5 (Best for coding)' },
-        { value: 'claude-sonnet-4-20250522', text: 'Claude Sonnet 4 (Balanced)' },
-        { value: 'claude-haiku-4-5-20251015', text: 'Claude Haiku 4.5 (Fast & cheap)' },
-        { value: 'claude-opus-4-20250805', text: 'Claude Opus 4 (Most capable)' },
+        { value: 'claude-sonnet-4-20250514', text: 'Claude Sonnet 4 (Balanced)' },
+        { value: 'claude-haiku-4-5-20251001', text: 'Claude Haiku 4.5 (Fast & cheap)' },
+        { value: 'claude-opus-4-1-20250805', text: 'Claude Opus 4.1 (Most capable)' },
         { value: 'claude-3-sonnet-20240229', text: 'Claude 3 Sonnet (Legacy)' },
         { value: 'claude-3-haiku-20240307', text: 'Claude 3 Haiku (Legacy)' }
       ]
