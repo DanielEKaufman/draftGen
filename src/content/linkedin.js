@@ -150,6 +150,13 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         if (element) {
           // Get the text content, but extract just the name (may have badges/icons as children)
           const text = this.extractNameFromElement(element)
+
+          // Validate it's a real person's name (not institution, etc.)
+          if (!this.validateAsRealName(text)) {
+            console.log('⚠️ Skipping name candidate (failed validation):', text)
+            continue
+          }
+
           if (text && text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
             // Extra validation: make sure nearby text doesn't contain job indicators
             // This prevents extracting names from experience cards
@@ -187,6 +194,11 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         if (isInProfileHeader && (isLargeText || isHeading)) {
           // Extract name (handles elements with child badges/icons)
           const text = this.extractNameFromElement(element)
+
+          // Validate it's a real person's name (not institution, etc.)
+          if (!this.validateAsRealName(text)) {
+            continue
+          }
 
           // Check if it looks like a name (handles "First Last" or "First L.")
           if (text && text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
@@ -411,37 +423,49 @@ if (typeof window.LinkedInExtractor === 'undefined') {
 
     validateAsRealName(text) {
       if (!text || typeof text !== 'string') return false
-      
-      // Extremely strict validation to prevent UI elements
+
+      // Extremely strict validation to prevent UI elements and institutions
       const lowercaseText = text.toLowerCase().trim()
-      
+
       // Hard block common UI elements
-      const blockedWords = ['my', 'network', 'message', 'more', 'follow', 'connect', 'linkedin', 
+      const blockedWords = ['my', 'network', 'message', 'more', 'follow', 'connect', 'linkedin',
                            'profile', 'about', 'experience', 'education', 'home', 'notifications',
                            'jobs', 'messaging', 'premium', 'work', 'insights', 'search']
-      
+
+      // Block institutional names (schools, companies)
+      const institutionKeywords = ['university', 'college', 'institute', 'school', 'academy',
+                                   'corporation', 'company', 'inc', 'llc', 'ltd', 'gmbh']
+
       // If it's exactly a blocked word or starts/ends with one, reject
       for (const blocked of blockedWords) {
-        if (lowercaseText === blocked || 
-            lowercaseText.startsWith(blocked + ' ') || 
+        if (lowercaseText === blocked ||
+            lowercaseText.startsWith(blocked + ' ') ||
             lowercaseText.endsWith(' ' + blocked)) {
           console.log(`❌ Rejected name "${text}" - contains blocked word "${blocked}"`)
           return false
         }
       }
-      
-      // Must look like a real person's name
-      if (!text.match(/^[A-Z][a-z]+ [A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
+
+      // Reject if it contains institution keywords
+      for (const keyword of institutionKeywords) {
+        if (lowercaseText.includes(keyword)) {
+          console.log(`❌ Rejected name "${text}" - contains institution keyword "${keyword}"`)
+          return false
+        }
+      }
+
+      // Must look like a real person's name (handles "First L." style)
+      if (!text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
         console.log(`❌ Rejected name "${text}" - doesn't match name pattern`)
         return false
       }
-      
-      // Additional length checks
-      if (text.length < 6 || text.length > 50) {
-        console.log(`❌ Rejected name "${text}" - invalid length`)
+
+      // Additional length checks (real names are typically 5-40 chars)
+      if (text.length < 5 || text.length > 40) {
+        console.log(`❌ Rejected name "${text}" - invalid length (${text.length})`)
         return false
       }
-      
+
       console.log(`✅ Validated name "${text}"`)
       return true
     }
@@ -476,52 +500,65 @@ if (typeof window.LinkedInExtractor === 'undefined') {
 
     scoreAsName(text, element) {
       if (!text || text.length < 3 || text.length > 60) return 0
-      
+
       let score = 0
-      
+
       // Strong negative filters for UI elements that shouldn't be names
       const lowercaseText = text.toLowerCase()
-      const uiKeywords = ['my', 'network', 'message', 'more', 'follow', 'connect', 'linkedin', 
+      const uiKeywords = ['my', 'network', 'message', 'more', 'follow', 'connect', 'linkedin',
                          'profile', 'about', 'experience', 'education', 'skills', 'endorsements',
                          'recommendations', 'activity', 'contact', 'info', 'see', 'all', 'view',
                          'premium', 'hire', 'hiring', 'recruiting', 'job', 'open', 'work', 'learn']
-      
+
+      // Block institutional names
+      const institutionKeywords = ['university', 'college', 'institute', 'school', 'academy']
+
       // If text is a common UI keyword, heavily penalize
       if (uiKeywords.includes(lowercaseText)) {
         return 0
       }
-      
+
+      // If text contains institution keywords, reject
+      for (const keyword of institutionKeywords) {
+        if (lowercaseText.includes(keyword)) {
+          console.log(`❌ Rejecting "${text}" - contains institution keyword "${keyword}"`)
+          return 0
+        }
+      }
+
       // If text contains common UI phrases, penalize
-      if (lowercaseText.includes('connection') || lowercaseText.includes('mutual') || 
+      if (lowercaseText.includes('connection') || lowercaseText.includes('mutual') ||
           lowercaseText.includes('other') || lowercaseText.includes('people') ||
           lowercaseText.includes('hiring') || lowercaseText.includes('recruiting')) {
         return 0
       }
-      
+
       // Pattern matching for names (stronger patterns get higher scores)
       if (text.match(/^[A-Z][a-z]+ [A-Z][a-z]+(-[A-Z][a-z]+)*$/)) score += 60 // "First Last-Name"
       if (text.match(/^[A-Z][a-z]+ [A-Z][a-z]+(\s+[A-Z][a-z]+)*$/)) score += 55 // "First Last" or "First Middle Last"
       if (text.match(/^[A-Z][a-z]+\s+[A-Z]\.?\s+[A-Z][a-z]+$/)) score += 50 // "First M. Last"
       if (text.match(/^[A-Z][a-z]+\s+[A-Z][a-z]+$/)) score += 45 // Simple "First Last"
-      
+
       // Must look like a person's name to get any points
       if (score === 0) return 0
-      
-      // Heading elements are more likely to be names
+
+      // Heading elements are more likely to be names (h1 gets HUGE boost)
       const tagName = element.tagName.toLowerCase()
-      if (tagName === 'h1') score += 35
-      if (tagName === 'h2') score += 25
-      if (tagName === 'h3') score += 15
+      if (tagName === 'h1') score += 100 // MUCH higher boost for h1
+      if (tagName === 'h2') score += 15
+      if (tagName === 'h3') score += 5
       
       // Position-based scoring (profile names are usually in specific areas)
-      // STRICT: Only the top profile header area, NOT the activity feed or posts
+      // EXTREMELY STRICT: Only the very top profile header area
       const rect = element.getBoundingClientRect()
-      if (rect.top > 80 && rect.top < 350 && rect.left > 0 && rect.left < 700) {
-        score += 40 // Main profile header area
-      } else if (rect.top > 350) {
-        score -= 30 // Penalize content below profile header (posts, activity, etc.)
+      if (rect.top > 100 && rect.top < 300 && rect.left > 0 && rect.left < 700) {
+        score += 50 // Main profile header area (narrower range)
+      } else if (rect.top > 300) {
+        score -= 50 // Heavy penalty for content below header (education, experience, etc.)
       }
-      if (rect.top < 250) score += 20 // Very top portion (where main profile is)
+
+      // Profile name is almost always in the very top section
+      if (rect.top < 200) score += 40 // Very top (where actual name is)
       
       // Font size (larger text more likely to be names)
       const fontSize = parseFloat(window.getComputedStyle(element).fontSize)
