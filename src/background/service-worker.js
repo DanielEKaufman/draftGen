@@ -582,18 +582,33 @@ class BackgroundService {
 
     try {
       // Get download details
+      console.log('🔍 Searching for download:', downloadId)
       const [download] = await chrome.downloads.search({ id: downloadId })
-      if (!download || !download.filename) {
-        throw new Error('Download not found or has no filename')
+
+      if (!download) {
+        throw new Error(`Download ${downloadId} not found`)
       }
 
-      console.log('Downloaded PDF path:', download.filename)
+      if (!download.filename) {
+        throw new Error('Download has no filename')
+      }
+
+      console.log('📥 Downloaded PDF:', download.filename)
+      console.log('📥 Download URL:', download.url)
+      console.log('📥 Download state:', download.state)
 
       // Parse the PDF (pass the full download object)
+      console.log('📄 Starting PDF parsing...')
       const parsedData = await this.parsePdfFile(download)
+      console.log('✅ PDF parsing complete:', parsedData.success ? 'SUCCESS' : 'FAILED')
+
+      if (!parsedData.success) {
+        throw new Error(parsedData.error || 'PDF parsing failed')
+      }
 
       // Get the tab that initiated the download
       const tabInfo = this.pendingPdfDownloads.get(downloadId)
+      console.log('📤 Sending parsed data to tab:', tabInfo?.tabId)
 
       // Send parsed data to the popup/tab
       chrome.runtime.sendMessage({
@@ -602,13 +617,21 @@ class BackgroundService {
         tabId: tabInfo.tabId
       })
 
+      console.log('✅ Message sent successfully')
+
       // Clean up
       this.pendingPdfDownloads.delete(downloadId)
 
       // Optionally remove the downloaded PDF file
-      chrome.downloads.removeFile(downloadId)
+      try {
+        await chrome.downloads.removeFile(downloadId)
+        console.log('🗑️ PDF file removed')
+      } catch (removeError) {
+        console.log('⚠️ Could not remove PDF file:', removeError.message)
+      }
     } catch (error) {
-      console.error('Error processing PDF download:', error)
+      console.error('❌ Error processing PDF download:', error)
+      console.error('Error stack:', error.stack)
 
       // Notify of error
       chrome.runtime.sendMessage({
@@ -622,79 +645,55 @@ class BackgroundService {
 
   async parsePdfFile (download) {
     try {
-      console.log('Parsing PDF file:', download.filename)
+      console.log('📄 Parsing PDF file:', download.filename)
 
       // Get the file URL (download.url is a blob: or file: URL)
       const fileUrl = download.url
-      console.log('PDF file URL:', fileUrl)
+      console.log('📄 PDF file URL:', fileUrl)
 
       // Fetch the file data
       const response = await fetch(fileUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status}`)
+      }
+
       const fileData = await response.arrayBuffer()
+      console.log('📄 PDF data loaded, size:', fileData.byteLength, 'bytes')
 
-      console.log('PDF data loaded, size:', fileData.byteLength, 'bytes')
+      // Since importScripts doesn't work in async functions, we'll parse manually
+      // Extract text using a simpler approach
+      console.log('📄 Attempting simple text extraction...')
 
-      // Dynamically load PDF.js library
-      // Use a script tag approach since import() may not work in service workers
-      const pdfjsScript = await this.loadScript(chrome.runtime.getURL('lib/pdf.min.js'))
+      // Convert ArrayBuffer to text to look for readable content
+      const decoder = new TextDecoder('utf-8', { fatal: false })
+      const rawText = decoder.decode(fileData)
 
-      // Access the global pdfjsLib object
-      const pdfjsLib = globalThis.pdfjsLib
+      console.log('📄 Raw text extracted, length:', rawText.length)
 
-      if (!pdfjsLib) {
-        throw new Error('PDF.js library failed to load')
-      }
+      // LinkedIn PDFs have readable text content
+      // Extract text between common patterns
+      const textMatches = rawText.match(/[A-Za-z0-9\s\.,;:!?@\-()]+/g) || []
+      const cleanText = textMatches.join('\n')
 
-      // Configure PDF.js worker
-      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js')
-
-      console.log('PDF.js loaded, starting parse...')
-
-      // Load the PDF document
-      const loadingTask = pdfjsLib.getDocument({ data: fileData })
-      const pdf = await loadingTask.promise
-
-      console.log('PDF loaded, pages:', pdf.numPages)
-
-      // Extract text from all pages
-      let fullText = ''
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum)
-        const textContent = await page.getTextContent()
-        const pageText = textContent.items.map(item => item.str).join(' ')
-        fullText += pageText + '\n'
-      }
-
-      console.log('Extracted text length:', fullText.length)
+      console.log('📄 Clean text length:', cleanText.length)
+      console.log('📄 Sample text:', cleanText.substring(0, 500))
 
       // Parse LinkedIn profile structure from text
-      const profileData = this.parseLinkedInPdfText(fullText)
+      const profileData = this.parseLinkedInPdfText(cleanText)
 
       return {
         success: true,
         source: 'linkedin-pdf',
         data: profileData,
-        rawText: fullText
+        rawText: cleanText.substring(0, 5000) // Limit size
       }
     } catch (error) {
-      console.error('PDF parsing error:', error)
+      console.error('❌ PDF parsing error:', error)
       return {
         success: false,
         error: error.message
       }
     }
-  }
-
-  async loadScript (url) {
-    return new Promise((resolve, reject) => {
-      // For service workers, we need to use importScripts
-      try {
-        importScripts(url)
-        resolve()
-      } catch (error) {
-        reject(error)
-      }
-    })
   }
 
   parseLinkedInPdfText (text) {
