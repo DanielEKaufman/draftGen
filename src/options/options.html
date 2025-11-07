@@ -145,17 +145,40 @@
                                     <label for="templateDescription" class="label">Description:</label>
                                     <input type="text" id="templateDescription" class="input" placeholder="Brief description of when to use this template">
                                 </div>
+
+                                <div class="form-group">
+                                    <label for="templateBody" class="label required">Template Body:</label>
+                                    <textarea 
+                                        id="templateBody" 
+                                        class="textarea" 
+                                        rows="6" 
+                                        placeholder="Hi {first_name},&#10;&#10;{custom_content}&#10;&#10;Would you be open to a quick chat? Here's my [calendar]{calendar_link}.&#10;&#10;You can also find me on [LinkedIn]{linkedin}.&#10;&#10;Best,&#10;Dan"
+                                    ></textarea>
+                                    <div class="help-text">
+                                        Define the email structure with placeholders and hyperlinks:
+                                        <br><strong>Placeholders:</strong>
+                                        <br>• <strong>{first_name}</strong> - Recipient's first name
+                                        <br>• <strong>{company}</strong> - Recipient's company  
+                                        <br>• <strong>{custom_content}</strong> - AI-generated personalized content
+                                        <br>• <strong>{calendar_link}</strong> - Your calendar booking link
+                                        <br>• <strong>{bio}</strong> - Your bio line
+                                        <br><br><strong>Hyperlinks:</strong>
+                                        <br>• <strong>[text](URL)</strong> - Direct link: [here](https://example.com)
+                                        <br>• <strong>[text]{calendar_link}</strong> - Placeholder link: [here]{calendar_link}
+                                        <br>• <strong>[text]{linkedin}</strong> - Your LinkedIn: [LinkedIn]{linkedin}
+                                    </div>
+                                </div>
                                 
                                 <div class="form-group">
-                                    <label for="templateContent" class="label required">Template Instructions:</label>
+                                    <label for="templateContent" class="label">Content Instructions:</label>
                                     <textarea 
                                         id="templateContent" 
                                         class="textarea" 
-                                        rows="8" 
-                                        placeholder="Add specific instructions for this template style. For example:&#10;&#10;- Start with a specific observation about their recent work&#10;- Mention our mutual connection at [Company]&#10;- Reference the [specific project/post] they shared&#10;- Focus on [specific value proposition]&#10;- End with a specific ask for a 15-minute call"
+                                        rows="4" 
+                                        placeholder="Instructions for generating {custom_content}:&#10;&#10;- Reference their recent LinkedIn post about [topic]&#10;- Mention specific value proposition&#10;- Include ask for 15-minute call"
                                     ></textarea>
                                     <div class="help-text">
-                                        These instructions will be added to the AI prompt to customize the writing style and approach
+                                        Optional: Specific instructions for how the AI should generate the {custom_content} section
                                     </div>
                                 </div>
                                 
@@ -213,6 +236,77 @@
                             <span class="checkbox-description">Improves compatibility across email clients</span>
                         </div>
                     </label>
+                </div>
+            </section>
+
+            <!-- CRM Integration Section -->
+            <section class="section">
+                <h2>CRM Integration</h2>
+                
+                <div class="form-group">
+                    <label for="notionApiKey" class="label required">Notion API Key:</label>
+                    <div class="input-group">
+                        <input 
+                            type="password" 
+                            id="notionApiKey" 
+                            class="input" 
+                            placeholder="Enter your Notion integration API key..."
+                            autocomplete="new-password"
+                        >
+                        <button type="button" id="toggleNotionApiKey" class="toggle-btn" title="Show/Hide API Key">
+                            👁️
+                        </button>
+                    </div>
+                    <div class="help-text">
+                        Create a Notion integration at <a href="https://www.notion.so/my-integrations" target="_blank">notion.so/my-integrations</a> and copy the API key
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="contactsDbId" class="label required">Contacts Database ID:</label>
+                    <input 
+                        type="text" 
+                        id="contactsDbId" 
+                        class="input" 
+                        placeholder="e.g., 12345678-1234-1234-1234-123456789abc"
+                    >
+                    <div class="help-text">
+                        Copy the database ID from your Notion Contacts database URL
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="projectsDbId" class="label">Projects Database ID (Optional):</label>
+                    <input 
+                        type="text" 
+                        id="projectsDbId" 
+                        class="input" 
+                        placeholder="e.g., 12345678-1234-1234-1234-123456789abc"
+                    >
+                    <div class="help-text">
+                        Optional: Link contacts to projects for better context
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="outreachLogsDbId" class="label">Outreach Logs Database ID (Optional):</label>
+                    <input 
+                        type="text" 
+                        id="outreachLogsDbId" 
+                        class="input" 
+                        placeholder="e.g., 12345678-1234-1234-1234-123456789abc"
+                    >
+                    <div class="help-text">
+                        Optional: Log all outreach activities automatically
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button id="testNotionBtn" class="btn btn-secondary">
+                        <span class="btn-text">Test Notion Connection</span>
+                        <div class="btn-spinner hidden"></div>
+                    </button>
+                    <div id="notionTestResult" class="test-result hidden"></div>
                 </div>
             </section>
 
