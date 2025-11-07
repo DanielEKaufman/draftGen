@@ -148,10 +148,23 @@ if (typeof window.LinkedInExtractor === 'undefined') {
       for (const selector of knownSelectors) {
         const element = document.querySelector(selector)
         if (element) {
-          const text = element.textContent?.trim()
+          // Get the text content, but extract just the name (may have badges/icons as children)
+          const text = this.extractNameFromElement(element)
           if (text && text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
-            console.log('✅ Found name via known selector:', selector, '→', text)
-            return text
+            // Extra validation: make sure nearby text doesn't contain job indicators
+            // This prevents extracting names from experience cards
+            const parentText = element.parentElement?.textContent || ''
+            const siblingText = Array.from(element.parentElement?.children || [])
+              .filter(child => child !== element)
+              .map(child => child.textContent)
+              .join(' ')
+
+            if (!this.containsJobIndicators(parentText) && !this.containsJobIndicators(siblingText)) {
+              console.log('✅ Found name via known selector:', selector, '→', text)
+              return text
+            } else {
+              console.log('⚠️ Skipping name candidate (job indicators nearby):', text)
+            }
           }
         }
       }
@@ -161,9 +174,6 @@ if (typeof window.LinkedInExtractor === 'undefined') {
       const allElements = document.querySelectorAll('*')
 
       for (const element of allElements) {
-        const text = element.textContent?.trim()
-        if (!text || element.children.length > 1) continue
-
         const rect = element.getBoundingClientRect()
         const fontSize = parseFloat(window.getComputedStyle(element).fontSize)
         const tagName = element.tagName.toLowerCase()
@@ -175,8 +185,11 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         const isHeading = tagName === 'h1'
 
         if (isInProfileHeader && (isLargeText || isHeading)) {
+          // Extract name (handles elements with child badges/icons)
+          const text = this.extractNameFromElement(element)
+
           // Check if it looks like a name (handles "First Last" or "First L.")
-          if (text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
+          if (text && text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
             largeTexts.push({ text, fontSize, element, rect, tagName })
           }
         }
@@ -198,6 +211,68 @@ if (typeof window.LinkedInExtractor === 'undefined') {
       })))
 
       return largeTexts.length > 0 ? largeTexts[0].text : null
+    }
+
+    extractNameFromElement(element) {
+      // Extract name from an element that might have child badges/icons
+      // Strategy: Get the first text node or the largest text chunk
+
+      // If element has no children, just return the text
+      if (element.children.length === 0) {
+        return element.textContent?.trim()
+      }
+
+      // If element has children, try to extract just the name text
+      // Common pattern: <h1>Kristen W. <span class="badge">She/Her</span> <span>3rd</span></h1>
+
+      // Get all text nodes
+      const textNodes = []
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false)
+      let node
+      while (node = walker.nextNode()) {
+        const text = node.textContent?.trim()
+        if (text && text.length > 0) {
+          textNodes.push(text)
+        }
+      }
+
+      console.log('Text nodes found in element:', textNodes)
+
+      // Find the longest text node that looks like a name
+      for (const text of textNodes) {
+        if (text.match(/^[A-Z][a-z]+(\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(\s+[A-Z][a-z-]+)*$/)) {
+          console.log('✅ Extracted name from text nodes:', text)
+          return text
+        }
+      }
+
+      // Fallback: get the full text and try to clean it
+      const fullText = element.textContent?.trim()
+      console.log('Full text content:', fullText)
+
+      // Try to extract name from the beginning of the text
+      // Pattern: "Kristen W. She/Her · 3rd" → extract "Kristen W."
+      const nameMatch = fullText.match(/^([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z-]+(?:\s+[A-Z][a-z-]+)*)/)
+      if (nameMatch) {
+        console.log('✅ Extracted name from beginning:', nameMatch[1])
+        return nameMatch[1]
+      }
+
+      return fullText
+    }
+
+    containsJobIndicators(text) {
+      // Check if text contains job/experience indicators
+      if (!text) return false
+      const lower = text.toLowerCase()
+      return lower.includes(' at ') ||
+             lower.includes('vice president') ||
+             lower.includes('director') ||
+             lower.includes('manager') ||
+             lower.includes('senior ') ||
+             lower.includes('experience') ||
+             lower.includes('years') ||
+             lower.match(/\d+\s+(yr|year|mo|month)/i)
     }
 
     findJobInformation() {
@@ -373,27 +448,28 @@ if (typeof window.LinkedInExtractor === 'undefined') {
 
     dynamicNameDiscovery() {
       console.log('🧠 Starting dynamic name discovery...')
-      
+
       const candidates = []
-      
+
       // Analyze all text elements and score them as potential names
       const allElements = document.querySelectorAll('*')
-      
+
       for (const element of allElements) {
-        const text = element.textContent?.trim()
-        if (!text || element.children.length > 1) continue // Skip containers with multiple children
-        
+        // Extract text even if element has child badges/icons
+        const text = this.extractNameFromElement(element)
+        if (!text) continue
+
         const score = this.scoreAsName(text, element)
         if (score > 0) {
           candidates.push({ text, element, score, type: 'name' })
         }
       }
-      
+
       // Sort by score (highest first)
       candidates.sort((a, b) => b.score - a.score)
-      
+
       console.log('Name candidates found:', candidates.slice(0, 5).map(c => ({ text: c.text, score: c.score })))
-      
+
       // Return the highest-scoring candidate
       return candidates.length > 0 ? candidates[0].text : ''
     }
