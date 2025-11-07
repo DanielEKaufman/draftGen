@@ -4,6 +4,7 @@ class PopupController {
     this.currentConfig = null
     this.initializeElements()
     this.attachEventListeners()
+    this.setupMessageListener()
     this.loadState()
   }
 
@@ -263,6 +264,12 @@ class PopupController {
       // Get current tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
 
+      // Register with background service that we're about to trigger a PDF download
+      await chrome.runtime.sendMessage({
+        action: 'registerPdfDownload',
+        data: { tabId: tab.id }
+      })
+
       // Send message to content script to click More → Save to PDF
       const response = await this.sendMessageToTab(tab.id, {
         action: 'triggerPdfDownload'
@@ -270,10 +277,9 @@ class PopupController {
 
       if (response && response.success) {
         console.log('PDF download triggered successfully')
-        this.pullPdfBtn.textContent = '✓ PDF Downloading...'
+        this.pullPdfBtn.textContent = '⏳ Processing PDF...'
 
-        // Listen for the download to complete
-        this.setupPDFDownloadListener()
+        // Background service will automatically detect, parse, and send results back
       } else {
         console.error('Failed to trigger PDF download:', response?.error)
         this.pullPdfBtn.disabled = false
@@ -288,12 +294,80 @@ class PopupController {
     }
   }
 
+  setupMessageListener () {
+    // Listen for messages from background script (PDF parsing results)
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('Popup received message:', message)
+
+      if (message.action === 'pdfParsed') {
+        this.handlePdfParsed(message.data)
+      } else if (message.action === 'pdfParseError') {
+        this.handlePdfParseError(message.error)
+      }
+
+      return true
+    })
+  }
+
+  async handlePdfParsed (parsedData) {
+    console.log('PDF parsing completed:', parsedData)
+
+    try {
+      if (!parsedData.success) {
+        throw new Error(parsedData.error || 'PDF parsing failed')
+      }
+
+      // Update current data with PDF data
+      this.currentData = parsedData
+
+      // Display the extracted content
+      this.displayExtractedContent(parsedData)
+
+      // Populate identity fields
+      this.populateIdentityFields()
+
+      // Update PDF button state
+      this.pullPdfBtn.disabled = false
+      this.pullPdfBtn.textContent = '✓ PDF Loaded'
+
+      // Change button color to indicate success
+      this.pullPdfBtn.style.backgroundColor = '#10b981'
+
+      // Save to cache
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      await this.saveCachedState(tab.url, {
+        extractedData: parsedData,
+        crmData: this.crmData || null
+      })
+
+      // Optionally trigger CRM check automatically if configured
+      if (this.currentConfig.notionCrm && this.currentConfig.notionCrm.apiKey) {
+        console.log('Auto-triggering CRM check after PDF load...')
+        setTimeout(() => this.checkCRM(), 500)
+      }
+
+      console.log('PDF data successfully integrated into UI')
+    } catch (error) {
+      console.error('Error handling parsed PDF:', error)
+      this.handlePdfParseError(error.message)
+    }
+  }
+
+  handlePdfParseError (error) {
+    console.error('PDF parsing error:', error)
+
+    // Reset button state
+    this.pullPdfBtn.disabled = false
+    this.pullPdfBtn.textContent = '📄 Pull in Full PDF'
+    this.pullPdfBtn.style.backgroundColor = ''
+
+    // Show error to user
+    alert(`PDF parsing failed: ${error}\n\nYou can still use the content extracted from the webpage.`)
+  }
+
   setupPDFDownloadListener () {
-    // This will be implemented to listen for PDF download completion
-    console.log('Setting up PDF download listener...')
-    // TODO: Listen for chrome.downloads.onChanged
-    // TODO: Parse PDF when download completes
-    // TODO: Extract contact data from PDF
+    // This is now handled by setupMessageListener
+    console.log('PDF download listener ready via message passing')
   }
 
   loadCheckboxStates () {

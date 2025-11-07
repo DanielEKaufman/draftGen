@@ -949,6 +949,9 @@ if (typeof window.LinkedInExtractor === 'undefined') {
     try {
       console.log('📄 Attempting to trigger LinkedIn PDF download...')
 
+      // Human-like delay before starting (simulate reading/thinking)
+      await randomDelay(300, 800)
+
       // Find the "More" button (looks for common selectors)
       const moreButtonSelectors = [
         'button[aria-label*="More actions"]',
@@ -971,12 +974,18 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         throw new Error('Could not find "More" button on profile page')
       }
 
-      // Click the More button
-      console.log('Clicking More button...')
-      moreButton.click()
+      // Simulate mouse movement to the button
+      await simulateHumanHover(moreButton)
 
-      // Wait for dropdown to appear
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Human-like delay before clicking (simulate mouse positioning)
+      await randomDelay(100, 300)
+
+      // Click the More button with human-like behavior
+      console.log('Clicking More button...')
+      await humanLikeClick(moreButton)
+
+      // Wait for dropdown to appear (with slight randomness)
+      await randomDelay(400, 700)
 
       // Find the "Save to PDF" option in the dropdown
       const pdfButtonSelectors = [
@@ -1012,9 +1021,18 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         throw new Error('Could not find "Save to PDF" option in dropdown')
       }
 
-      // Click the PDF button
+      // Simulate mouse movement to PDF button
+      await simulateHumanHover(pdfButton)
+
+      // Human-like delay before clicking (simulate reading the option)
+      await randomDelay(200, 500)
+
+      // Click the PDF button with human-like behavior
       console.log('Clicking Save to PDF button...')
-      pdfButton.click()
+      await humanLikeClick(pdfButton)
+
+      // Small delay to ensure download starts
+      await randomDelay(100, 200)
 
       console.log('✓ PDF download triggered successfully')
       sendResponse({
@@ -1029,6 +1047,82 @@ if (typeof window.LinkedInExtractor === 'undefined') {
         error: error.message
       })
     }
+  }
+
+  // Human-like behavior helper functions
+  function randomDelay(min, max) {
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min
+    return new Promise(resolve => setTimeout(resolve, delay))
+  }
+
+  async function simulateHumanHover(element) {
+    // Dispatch mouse events to simulate hovering
+    const rect = element.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+
+    // Dispatch mouseenter and mouseover events
+    element.dispatchEvent(new MouseEvent('mouseenter', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y
+    }))
+
+    element.dispatchEvent(new MouseEvent('mouseover', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y
+    }))
+
+    // Brief pause to simulate hover
+    await randomDelay(50, 150)
+  }
+
+  async function humanLikeClick(element) {
+    // Simulate a more realistic click sequence
+    const rect = element.getBoundingClientRect()
+    const x = rect.left + rect.width / 2 + (Math.random() * 4 - 2) // Add slight randomness
+    const y = rect.top + rect.height / 2 + (Math.random() * 4 - 2)
+
+    // Dispatch mousedown
+    element.dispatchEvent(new MouseEvent('mousedown', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      button: 0
+    }))
+
+    // Small delay between mousedown and mouseup (human reaction time)
+    await randomDelay(50, 120)
+
+    // Dispatch mouseup
+    element.dispatchEvent(new MouseEvent('mouseup', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      button: 0
+    }))
+
+    // Dispatch click
+    element.dispatchEvent(new MouseEvent('click', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      button: 0
+    }))
+
+    // Also try the native click as fallback
+    element.click()
   }
 
   // Auto-extract data when page loads (for faster popup response)

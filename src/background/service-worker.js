@@ -522,6 +522,8 @@ class StyleRules {
 class BackgroundService {
   constructor () {
     this.setupMessageListener()
+    this.setupDownloadListener()
+    this.pendingPdfDownloads = new Map() // Track PDF downloads awaiting parsing
     console.log('One-Click Outreach background service initialized')
   }
 
@@ -530,6 +532,266 @@ class BackgroundService {
       this.handleMessage(request, sender, sendResponse)
       return true // Keep message channel open for async response
     })
+  }
+
+  setupDownloadListener () {
+    // Listen for new downloads being created
+    chrome.downloads.onCreated.addListener((downloadItem) => {
+      this.handleDownloadCreated(downloadItem)
+    })
+
+    // Listen for download state changes
+    chrome.downloads.onChanged.addListener((delta) => {
+      this.handleDownloadChanged(delta)
+    })
+  }
+
+  handleDownloadCreated (downloadItem) {
+    console.log('Download created:', downloadItem)
+
+    // Check if this is a LinkedIn PDF (filename is "Profile.pdf" from LinkedIn)
+    const filename = downloadItem.filename.toLowerCase()
+    const isLinkedInPdf = filename.includes('profile') && filename.endsWith('.pdf')
+
+    if (isLinkedInPdf && this.recentPdfTrigger) {
+      // Check if triggered recently (within last 10 seconds)
+      const timeSinceTrigger = Date.now() - this.recentPdfTrigger.timestamp
+      if (timeSinceTrigger < 10000) {
+        console.log('Detected LinkedIn PDF download:', downloadItem.id)
+        this.pendingPdfDownloads.set(downloadItem.id, {
+          tabId: this.recentPdfTrigger.tabId,
+          timestamp: Date.now()
+        })
+      }
+    }
+  }
+
+  async handleDownloadChanged (delta) {
+    // Only process state changes to 'complete'
+    if (!delta.state || delta.state.current !== 'complete') {
+      return
+    }
+
+    // Check if this is a LinkedIn PDF we're tracking
+    const downloadId = delta.id
+    if (!this.pendingPdfDownloads.has(downloadId)) {
+      return
+    }
+
+    console.log('PDF download completed:', downloadId)
+
+    try {
+      // Get download details
+      const [download] = await chrome.downloads.search({ id: downloadId })
+      if (!download || !download.filename) {
+        throw new Error('Download not found or has no filename')
+      }
+
+      console.log('Downloaded PDF path:', download.filename)
+
+      // Parse the PDF (pass the full download object)
+      const parsedData = await this.parsePdfFile(download)
+
+      // Get the tab that initiated the download
+      const tabInfo = this.pendingPdfDownloads.get(downloadId)
+
+      // Send parsed data to the popup/tab
+      chrome.runtime.sendMessage({
+        action: 'pdfParsed',
+        data: parsedData,
+        tabId: tabInfo.tabId
+      })
+
+      // Clean up
+      this.pendingPdfDownloads.delete(downloadId)
+
+      // Optionally remove the downloaded PDF file
+      chrome.downloads.removeFile(downloadId)
+    } catch (error) {
+      console.error('Error processing PDF download:', error)
+
+      // Notify of error
+      chrome.runtime.sendMessage({
+        action: 'pdfParseError',
+        error: error.message
+      })
+
+      this.pendingPdfDownloads.delete(downloadId)
+    }
+  }
+
+  async parsePdfFile (download) {
+    try {
+      console.log('Parsing PDF file:', download.filename)
+
+      // Get the file URL (download.url is a blob: or file: URL)
+      const fileUrl = download.url
+      console.log('PDF file URL:', fileUrl)
+
+      // Fetch the file data
+      const response = await fetch(fileUrl)
+      const fileData = await response.arrayBuffer()
+
+      console.log('PDF data loaded, size:', fileData.byteLength, 'bytes')
+
+      // Dynamically load PDF.js library
+      // Use a script tag approach since import() may not work in service workers
+      const pdfjsScript = await this.loadScript(chrome.runtime.getURL('lib/pdf.min.js'))
+
+      // Access the global pdfjsLib object
+      const pdfjsLib = globalThis.pdfjsLib
+
+      if (!pdfjsLib) {
+        throw new Error('PDF.js library failed to load')
+      }
+
+      // Configure PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js')
+
+      console.log('PDF.js loaded, starting parse...')
+
+      // Load the PDF document
+      const loadingTask = pdfjsLib.getDocument({ data: fileData })
+      const pdf = await loadingTask.promise
+
+      console.log('PDF loaded, pages:', pdf.numPages)
+
+      // Extract text from all pages
+      let fullText = ''
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum)
+        const textContent = await page.getTextContent()
+        const pageText = textContent.items.map(item => item.str).join(' ')
+        fullText += pageText + '\n'
+      }
+
+      console.log('Extracted text length:', fullText.length)
+
+      // Parse LinkedIn profile structure from text
+      const profileData = this.parseLinkedInPdfText(fullText)
+
+      return {
+        success: true,
+        source: 'linkedin-pdf',
+        data: profileData,
+        rawText: fullText
+      }
+    } catch (error) {
+      console.error('PDF parsing error:', error)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+  }
+
+  async loadScript (url) {
+    return new Promise((resolve, reject) => {
+      // For service workers, we need to use importScripts
+      try {
+        importScripts(url)
+        resolve()
+      } catch (error) {
+        reject(error)
+      }
+    })
+  }
+
+  parseLinkedInPdfText (text) {
+    console.log('Parsing LinkedIn PDF structure...')
+
+    const data = {
+      name: '',
+      headline: '',
+      location: '',
+      about: '',
+      experience: [],
+      education: [],
+      skills: [],
+      email: '',
+      phone: ''
+    }
+
+    // Split text into lines for processing
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line)
+
+    // Name is typically the first line
+    if (lines.length > 0) {
+      data.name = lines[0]
+    }
+
+    // Headline is usually the second line
+    if (lines.length > 1) {
+      data.headline = lines[1]
+    }
+
+    // Extract email and phone using regex
+    const emailMatch = text.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/)
+    if (emailMatch) {
+      data.email = emailMatch[1]
+    }
+
+    const phoneMatch = text.match(/(\+?[\d\s\-\(\)]{10,})/)
+    if (phoneMatch) {
+      data.phone = phoneMatch[1].trim()
+    }
+
+    // Find "Experience" section
+    const experienceIndex = text.indexOf('Experience')
+    const educationIndex = text.indexOf('Education')
+    const skillsIndex = text.indexOf('Skills')
+
+    if (experienceIndex !== -1) {
+      const experienceEnd = educationIndex !== -1 ? educationIndex : skillsIndex !== -1 ? skillsIndex : text.length
+      const experienceText = text.substring(experienceIndex, experienceEnd)
+
+      // Parse experience entries (simplified)
+      // LinkedIn PDFs typically have: Company Name, Title, Date range
+      const experienceLines = experienceText.split('\n').filter(line => line.trim())
+      let currentExp = null
+
+      for (let i = 1; i < experienceLines.length; i++) {
+        const line = experienceLines[i].trim()
+        if (!line) continue
+
+        // Heuristic: if line contains "at" or looks like a title, it's a new entry
+        if (currentExp === null || line.includes(' at ')) {
+          if (currentExp) {
+            data.experience.push(currentExp)
+          }
+          currentExp = {
+            title: line.split(' at ')[0] || line,
+            company: line.split(' at ')[1] || '',
+            duration: ''
+          }
+        } else if (line.match(/\d{4}/) && !currentExp.duration) {
+          // Looks like a date range
+          currentExp.duration = line
+        }
+      }
+
+      if (currentExp) {
+        data.experience.push(currentExp)
+      }
+    }
+
+    // Find "About" section (typically before Experience)
+    const aboutMatch = text.match(/About\s+([\s\S]{20,500}?)\s+Experience/)
+    if (aboutMatch) {
+      data.about = aboutMatch[1].trim()
+    }
+
+    // Extract location (typically after headline)
+    if (lines.length > 2) {
+      // Location is often third line
+      const potentialLocation = lines[2]
+      if (potentialLocation.length < 100 && !potentialLocation.includes('@')) {
+        data.location = potentialLocation
+      }
+    }
+
+    console.log('Parsed LinkedIn profile data:', data)
+    return data
   }
 
   async handleMessage (request, sender, sendResponse) {
@@ -568,6 +830,14 @@ class BackgroundService {
         case 'logOutreach':
           const logResult = await this.logOutreach(request.data)
           sendResponse(logResult)
+          break
+
+        case 'registerPdfDownload':
+          // Register that we're expecting a PDF download from this tab
+          const tabId = request.data.tabId
+          this.recentPdfTrigger = { tabId, timestamp: Date.now() }
+          console.log('Registered PDF download trigger for tab:', tabId)
+          sendResponse({ success: true })
           break
 
         default:
